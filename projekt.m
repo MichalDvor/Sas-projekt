@@ -42,3 +42,5 @@ legend("Vzor", "Opraveno");
 %signal_F_opraveny(1170000:length(signal_F_opraveny))=0;      %tohle funguje
 
 audiowrite("opraveno.wav",real(signal_opraveny),frekvence_vzorkovani); % Opraveny audio zaznam
+
+%zkouska git push
