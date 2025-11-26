@@ -46,4 +46,13 @@ legend("Vzor", "Opraveno");
 
 audiowrite("opraveno.wav",real(signal_opraveny),frekvence_vzorkovani); % Opraveny audio zaznam
 
-%zkouska git push
+%% 2
+p=tf('p');                  % vytvori operatorovou promennou p
+w1=508/sqrt(10);            %výpočet mám v tabletu
+T1=1/w1;
+K=1;                        %výpočet mám v tabletu    
+F=K/(T1*p+1)^2; 
+figure(3)
+bode(F);                    % kontrola, že to sedí
+grid on;
+
