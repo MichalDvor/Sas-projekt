@@ -45,25 +45,26 @@ audiowrite("opraveno.wav",real(signal_opraveny),frekvence_vzorkovani); % Opraven
 
 
 %% 2
-close all;
 clc;
+close all;
 
 p=tf('p');                  % vytvori operatorovou promennou p
-w_rusiva=508;
-w1=w_rusiva/sqrt(10);            %výpočet mám v tabletu, možná ještě *2*pi?
-T1=1/w1;
-K=1;                        %výpočet mám v tabletu    
-F=K/(T1*p+1)^2; 
+ws=588*2*pi;
+wh=43512*2*pi;
+wl=sqrt(ws*wh);
+T=1/wl;
+K=1/(10*ws);
+F=K*p/(T*p+1)^2; 
 figure(3)
-bode(F);                    % kontrola, že to sedí
+bode(F);
 grid on;
 
 
 % 3
 Ts=1/frekvence_vzorkovani;
 z = tf('z',Ts);
-a=exp(-Ts/T1);
-F_z=1-(z-1)/(z-a)-Ts/T1*a*(z-1)/((z-a)^2);
+a=exp(-Ts/T);
+F_z=K*Ts/T^2*a*(z-1)/((z-a)^2);
 F_z=minreal(F_z,1e-4);
 F_z_c2d=c2d(F,Ts);
 
@@ -87,21 +88,23 @@ title("Amplitudová a fázová char.");
 grid on;
 
 %4
-signal_filtrovany=zeros(1,N);
+signal_filtrovany=zeros(N,1);
 
 signal_filtrovany(1)=0;                                 %První 2 prvky filtrovaného signálu
-signal_filtrovany(2)=signal_vzor(1)*(-2*a+1+a-Ts/T1*a);
+signal_filtrovany(2)=signal_vzor(1)*(-2*a+1+a-Ts/T*a);
 
 for i=(3:N)
-signal_filtrovany(i)=signal_vzor(i-1)*(-2*a+1+a-Ts/T1*a) + signal_vzor(i-2)*(a^2-a+Ts/T1*a) + 2*a*signal_filtrovany(i-1) + a^2*signal_filtrovany(i-2);   
+signal_filtrovany(i)=signal_vzor(i-1)*(K*Ts*a/(T^2)) + signal_vzor(i-2)*(K*Ts*a/(T^2)) + 2*a*signal_filtrovany(i-1) + a^2*signal_filtrovany(i-2);   
 end
 
-
+windowSize = 5; 
+b = (1/windowSize)*ones(1,windowSize);
+c = 1;
+signal_filter=filter(signal_vzor,b,c);
 
 figure(5);
 subplot(2,1,1);                             
 plot(t,signal_vzor_n);                      %Původní signál
 
 subplot(2,1,2);                             %Filtrované signály
-plot(t,signal_opraveny,t,signal_filtrovany)
-
+plot(t,signal_opraveny,t,signal_filter)
