@@ -96,9 +96,10 @@ signal_filtrovany=zeros(N,1);
 signal_filtrovany(1)=signal_vzor(1)*K/T^2;                                 %První 2 prvky filtrovaného signálu
 signal_filtrovany(2)=signal_vzor(2)*K/T^2-signal_vzor(1)*K/T^3*(Ts*a+T+T*a)+2*a*signal_filtrovany(1);
 
-for i=(3:N)
-signal_filtrovany(i)=signal_vzor(i)*citatel_koef(1)-signal_vzor(i-1)*citatel_koef(2)+signal_vzor(i-2)*citatel_koef(3)...
-+delitel_koef(2)*signal_filtrovany(1)-delitel_koef(3)*signal_filtrovany(i-2);   
+for i = 3:N
+    signal_filtrovany(i) = citatel_koef(1)*signal_vzor(i) + citatel_koef(2)*signal_vzor(i-1) + citatel_koef(3)*signal_vzor(i-2) ...
+    - delitel_koef(2)*signal_filtrovany(i-1) ...
+    - delitel_koef(3)*signal_filtrovany(i-2);
 end
 
 
