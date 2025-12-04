@@ -11,15 +11,18 @@ N = length(signal_vzor);                                        % Délka signál
 t=(0:N-1)*Ts;                                                   % vektor času pro signal_vzor [s]
 
 
-signal_F =fft(signal_vzor);                                     % Fourierova transformace
+signal_F =fft(signal_vzor)/N;                                     % Fourierova transformace
+figure(2);
+stem(signal_F);
 
-signal_F_opraveny=signal_F;                                     % Vytvoreni opraveneho signalu
-frekvence_ruseni_h=16108;
-frekvence_ruseni_d=13000;
-signal_F_opraveny(frekvence_ruseni_d:frekvence_ruseni_h)=0;
-signal_F_opraveny(1170000:length(signal_F_opraveny))=0;         % Tohle odstrani to periodicke ruseni, nevim proc
+signal_F_opraveny=signal_F;                                         % Vytvoreni opraveneho signalu
+periodicke_ruseni=[507.982,517.985, 527.987, 537.99, 547.993, 557.995, 567.998, 578.001 ,588.003,43512,43522,43532,43542,43552,43562,43572,43582,43592];
+% rušivé složky dle grafu, ještě 254.0009 dělá divný tón na pozadí, ale neni to periodické rušení bych řekl
+periodicke_ruseni=round(periodicke_ruseni*N/frekvence_vzorkovani)+1; % úprava na pořadí v poli (+1 korekce)
+signal_F_opraveny(periodicke_ruseni)=0;                          % Odstranění rušivých složek
+signal_opraveny=ifft(signal_F_opraveny)*N;
 
-signal_opraveny=ifft(signal_F_opraveny);                        % Signal opraveny v casove oblasti
+                        % Signal opraveny v casove oblasti
 signal_opraveny_n = signal_opraveny / max(max(signal_opraveny),abs(min(signal_opraveny))); % Normalizace
 
 figure(1);                                                      % Plocha pro graf
@@ -37,22 +40,79 @@ subplot(2,1,2);                                                 % Amplitudové s
 loglog(osa_frekvence, abs(signal_F),osa_frekvence, abs(signal_F_opraveny));     % Graf obrazu frekvencni, ale obe logaritmicke
 legend("Vzor", "Opraveno");
 
-%frekvence=0:length(signal_F);
-%frekvence_ruseni_h=16108;
-%frekvence_ruseni_d=13900;
-%signal_F_opraveny=signal_F;                                  %abs(signal_F).*(okno((frekvence-frekvence_ruseni)*(1/sirka_pasma_ruseni)));
-%signal_F_opraveny(frekvence_ruseni_d:frekvence_ruseni_h)=0;
-%signal_F_opraveny(1170000:length(signal_F_opraveny))=0;      %tohle funguje
 
-audiowrite("opraveno.wav",real(signal_opraveny),frekvence_vzorkovani); % Opraveny audio zaznam
+audiowrite("opraveno.wav",signal_opraveny,frekvence_vzorkovani); % Opraveny audio zaznam
+
 
 %% 2
+close all;
+clc;
+
 p=tf('p');                  % vytvori operatorovou promennou p
-w1=508/sqrt(10);            %výpočet mám v tabletu
-T1=1/w1;
-K=1;                        %výpočet mám v tabletu    
-F=K/(T1*p+1)^2; 
+w_rusiva=588*2*pi;
+w_lomu=w_rusiva*sqrt(10);      %výpočet mám v tabletu, možná ještě *2*pi?         
+T=1/w_lomu;
+K=1/(10*w_rusiva^2);                        %výpočet mám v tabletu    
+F=K*p^2/(T*p+1)^2; 
 figure(3)
 bode(F);                    % kontrola, že to sedí
 grid on;
 
+
+% 3
+Ts=1/frekvence_vzorkovani;
+z = tf('z',Ts);
+a=exp(-Ts/T);
+F_z=K/(T^2)*(z-1)/(z-a)-K*Ts*a/(T^3)*(z-1)/(z-a)^2;
+F_z=minreal(F_z,1e-4);
+F_z_c2d=c2d(F,Ts);
+
+figure(4);
+subplot(2,2,1);                             %Přechodová charakteristika F, F_z a F_z_c2d
+step(F,F_z,F_z_c2d,"--");
+legend ("Spojity","Analyticky","c2d");
+title("Přechodová char.");
+grid on;
+
+subplot(2,2,3);                             %Impulsová charakteristika F, F_z a F_z_c2d
+impulse(F,F_z,F_z_c2d,"--");
+legend ("Spojity","Analyticky","c2d");
+title("Impulsová char.");
+grid on;
+
+subplot(2,2,[2,4]);                             %Amplitudová a fázová charakteristika F, F_z a F_z_c2d
+bode(F,F_z,F_z_c2d,"--");
+legend ("Spojity","Analyticky","c2d");
+title("Amplitudová a fázová char.");
+grid on;
+
+%4
+citatel_koef=[F_z.Numerator{:}];
+delitel_koef=[F_z.Denominator{:}];
+signal_filter_func=filter(citatel_koef,delitel_koef,signal_vzor);
+
+signal_filtrovany=zeros(N,1);
+
+signal_filtrovany(1)=signal_vzor(1)*K/T^2;                                 %První 2 prvky filtrovaného signálu
+signal_filtrovany(2)=signal_vzor(2)*K/T^2-signal_vzor(1)*K/T^3*(Ts*a+T+T*a)+2*a*signal_filtrovany(1);
+
+for i=(3:N)
+signal_filtrovany(i)=signal_vzor(i)*citatel_koef(1)-signal_vzor(i-1)*citatel_koef(2)+signal_vzor(i-2)*citatel_koef(3)...
++delitel_koef(2)*signal_filtrovany(1)-delitel_koef(3)*signal_filtrovany(i-2);   
+end
+
+
+
+%signal_filtrovany_n = signal_filtrovany / max(max(signal_filtrovany),abs(min(signal_filtrovany)));
+
+figure(5);
+subplot(2,1,1);                             
+plot(t,signal_vzor_n);                      %Původní signál
+grid on;
+
+subplot(2,1,2);                             %Filtrované signály
+plot(t,signal_opraveny,t,signal_filtrovany,t,signal_filter_func,"--");
+legend ("Spojity","Analyticky","Filter");
+grid on;
+
+audiowrite("opravenoFiltrem.wav",signal_filtrovany,frekvence_vzorkovani);
